@@ -34,7 +34,7 @@ plotlyjs()
 
 # ╔═╡ 8b0d2a81-1169-487b-b28a-2e3fe50c6d5c
 # read in the data
-df = DataFrame(load("00064-ME02-I_matprops.xls", "Room Temperature Properties"))[1:71,:]
+df = DataFrame(load("https://github.com/rkurchin/27100_demos/blob/main/DIY_Ashby/00064-ME02-I_matprops.xls", "Room Temperature Properties"))[1:71,:]
 
 # ╔═╡ c7e58d64-adf2-4747-96a4-376fdce17faf
 # get list of properties
