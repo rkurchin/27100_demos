@@ -21,6 +21,11 @@ using DataFrames, ExcelFiles, Plots, PlotlyJS, PlutoUI
 # ╔═╡ 4d008a13-49fd-40dc-a1cd-eead32a6da86
 md"""
 # (Here's how I built this!)
+Feel free to dig into the code below if you like. This is done in the [Julia Language](https://julialang.org/) and the document is a [Pluto notebook](https://plutojl.org/). If you've used a Jupyter notebook before, it's similar to that, with a few key differences:
+- results display above the code cell instead of below
+- the notebook is _reactive_, meaning the order of execution doesn't matter: any cell that depends on the results of another will automatically recompute if something is changed!
+
+The dataset was downloaded from [here](https://commons.lbl.gov/display/lbldiv/Material+Properties).
 """
 
 # ╔═╡ 0f8598c1-991d-40e6-ac1d-64ae42ae9e91
@@ -29,20 +34,115 @@ plotlyjs()
 
 # ╔═╡ 8b0d2a81-1169-487b-b28a-2e3fe50c6d5c
 # read in the data
-df = DataFrame(load("00064-ME02-I_matprops.xls", "Room Temperature Properties"))#
+df = DataFrame(load("00064-ME02-I_matprops.xls", "Room Temperature Properties"))[1:71,:]
 
 # ╔═╡ c7e58d64-adf2-4747-96a4-376fdce17faf
-props = propertynames(df)[2:end-1]
+# get list of properties
+props = vcat(propertynames(df)[2:4], propertynames(df)[6:end-3])
 
 # ╔═╡ 5e0d2b26-bfb6-4ff0-8a62-001a4ca1d2b1
 md"""
 Select variables to put on x and y axes:
+
 x: $(@bind xprop Select(props))
+
 y: $(@bind yprop Select(props))
 """
 
+# ╔═╡ 8f094df5-8638-4c84-8632-9bd8ecfaec3b
+md"""
+Next we set up some data cleaning stuff for the properties...
+"""
+
+# ╔═╡ 700f6a9d-35b1-4902-98d8-14f9fdbbcd01
+# data cleaning/annotation extraction for yield tensile strength
+begin
+	clean_yts(input::Float64) = (input, " ")
+	clean_yts(input::Missing) = (input, " ")
+	function clean_yts(input::String)
+		spl = split(input, ' ')
+		if length(spl) == 2
+			return (parse(Float64, spl[1]), spl[2])
+		else
+			return (missing, ' ')
+		end
+	end
+end
+
+# ╔═╡ b66a97b2-7e9e-4c8f-a72b-8fb3042f7ce8
+transform!(df, AsTable(props[4]) => ByRow(r -> clean_yts(r[props[4]])) => [props[4], :YTS_annotation])
+
+# ╔═╡ e3924061-1126-4338-98e3-62d3b905edfc
+# data cleaning/annotation extraction for coefficient of thermal expansion
+begin
+	clean_cte(input::Float64) = input
+	clean_cte(input::Missing) = input
+	clean_cte(input::String) = parse(Float64, input[3:end])
+end
+
+# ╔═╡ a87c2e6b-3236-4dc8-aa94-939f5eb46fc0
+transform!(df, props[7] => ByRow(clean_cte) => props[7])
+
+# ╔═╡ 1080caf5-feb6-46bd-8500-843982bfa37b
+# data cleaning/annotation extraction for resistivity
+begin
+	clean_ρ(input::Float64) = input
+	clean_ρ(input::Missing) = input
+	function clean_ρ(input::String)
+		if input[end] == '*'
+			return missing
+		elseif input[1] == '+'
+			return parse(Float64, input[3:end])
+		end
+	end
+end
+
+# ╔═╡ be80fee0-3376-4d30-807c-d3ca6f799eb5
+transform!(df, props[8] => ByRow(clean_ρ) => props[8])
+
+# ╔═╡ 3a817923-ca57-45d2-b745-637d7250d82c
+df[:, props[8]] = replace(df[:, props[8]], nothing => missing)
+
+# ╔═╡ 191d26c5-2f97-4471-b7a7-4116fd68218c
+md"""
+Now we'll do some stuff to make the plotting look nice...
+"""
+
+# ╔═╡ 3ec6db8c-8e09-4d1c-b614-0a050fe4aba2
+stats = describe(df[:, props])
+
+# ╔═╡ aa0960ef-b6c8-40cb-870e-219e1d7fc2d9
+stats[stats.variable .== props[1], :].min[1]
+
+# ╔═╡ 8343d247-5d80-4ce4-a55e-811e41e414e1
+function axis_scaling(prop, thresh=100)
+	info = stats[stats.variable .== prop, :]
+	if info.max[1] / info.min[1] > thresh
+		return :log10
+	else
+		return :identity
+	end
+end
+
+# ╔═╡ c891af82-96a8-40df-a0cd-7eca91b9add2
+plot_colors = getindex.(Ref(Dict("M" => :grey, "P" => :blue, "C" => :orange, "X"=>:green)), df.Color)
+
 # ╔═╡ 1d2052d0-6172-453c-b6b5-124ade1c5b43
-Plots.scatter(df[!, xprop], df[!, yprop], hover=df[!, :Material])
+begin
+	xvals = df[!, xprop]
+	yvals = df[!, yprop]
+	good_x_inds = findall(!ismissing, xvals)
+	good_y_inds = findall(!ismissing, yvals)
+	keep_inds = intersect(good_x_inds, good_y_inds)
+
+	Plots.scatter(df[keep_inds, xprop], df[keep_inds, yprop], 
+		hover=df[keep_inds, :Material], 
+		legend=false, 
+		xlabel=String(xprop), ylabel=String(yprop),
+		xscale=axis_scaling(xprop), yscale=axis_scaling(yprop),
+		color=plot_colors[keep_inds]
+	)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1237,5 +1337,18 @@ version = "1.4.1+0"
 # ╠═0f8598c1-991d-40e6-ac1d-64ae42ae9e91
 # ╠═8b0d2a81-1169-487b-b28a-2e3fe50c6d5c
 # ╠═c7e58d64-adf2-4747-96a4-376fdce17faf
+# ╟─8f094df5-8638-4c84-8632-9bd8ecfaec3b
+# ╠═700f6a9d-35b1-4902-98d8-14f9fdbbcd01
+# ╠═b66a97b2-7e9e-4c8f-a72b-8fb3042f7ce8
+# ╠═e3924061-1126-4338-98e3-62d3b905edfc
+# ╠═a87c2e6b-3236-4dc8-aa94-939f5eb46fc0
+# ╠═1080caf5-feb6-46bd-8500-843982bfa37b
+# ╠═be80fee0-3376-4d30-807c-d3ca6f799eb5
+# ╠═3a817923-ca57-45d2-b745-637d7250d82c
+# ╟─191d26c5-2f97-4471-b7a7-4116fd68218c
+# ╠═3ec6db8c-8e09-4d1c-b614-0a050fe4aba2
+# ╠═aa0960ef-b6c8-40cb-870e-219e1d7fc2d9
+# ╠═8343d247-5d80-4ce4-a55e-811e41e414e1
+# ╠═c891af82-96a8-40df-a0cd-7eca91b9add2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
