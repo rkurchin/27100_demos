@@ -16,7 +16,7 @@ end
 
 # ╔═╡ 91e3cd20-80dc-11ed-1af8-79425c3a5d03
 # import the packages we'll need
-using DataFrames, Plots, PlotlyJS, PlutoUI, HTTP
+using DataFrames, Plots, PlotlyJS, PlutoUI
 
 # ╔═╡ 4d008a13-49fd-40dc-a1cd-eead32a6da86
 md"""
@@ -25,7 +25,7 @@ Feel free to dig into the code below if you like. This is done in the [Julia Lan
 - results display above the code cell instead of below
 - the notebook is _reactive_, meaning the order of execution doesn't matter: any cell that depends on the results of another will automatically recompute if something is changed!
 
-The dataset was downloaded from [here](https://commons.lbl.gov/display/lbldiv/Material+Properties).
+The dataset was downloaded from [here](https://commons.lbl.gov/display/lbldiv/Material+Properties), and a bunch of cleaning was done elsewhere to import from the Excel workbook (specifically, the "Room Temperature Properties" sheet).
 """
 
 # ╔═╡ 0f8598c1-991d-40e6-ac1d-64ae42ae9e91
@@ -34,93 +34,18 @@ plotlyjs()
 
 # ╔═╡ 9fa06e67-dd6d-43b2-a5cb-41695010c14b
 md"""
-Pasting in the entire contents of the spreadsheet so that the data is embedded in the file (janky AF)...
+Pasting the data directly seems to be the cleanest way to embed it in the notebook to avoid having to read from external files, which Binder struggles with...
 """
 
-# ╔═╡ b1a854e3-a7d1-4933-9222-d5228ffa6bb7
-dat = "Material	density (kg/m^3)	thermal conductivity  (W/(m*K))	specific heat (J/(kg*K))	Thermal Ref	Tensile Strength (Mpa)	Modulus (Gpa)	Poisson's Ratio	coefficient of thermal expansion (m/(m*K))	Resistivity (ohm m)	Dielectic Constant	Mechanical Ref	Color
-Al 1100-0	2770	221.6	921.6	1	34.5	68.9	0.33	2.36E-05	2.99E-08		21	M
-Al 6061-T6	2770	167.9	961.2	1	276	68.9	0.33	2.36E-05	3.99E-08		19	M
-Al 6063-T5	2770	200.8	900	1	145	68.9	0.33	2.34E-05	3.16E-08		98	M
-AlBeMet162	2100	210	1506	104	193	193	0.17	1.39E-05	3.50E-08		104	X
-AlN	3250	140		15	280 F	308		4.30E-06	1.00E+12	8.7	15	C
-Be-38 Al	2080	212.9		1								M
-Be-96A	1830	141.9	1800	1								M
-Beryllia	3040	271.8	1047.6	1			0.38	6.40E-06		6.5	24	C
-Beryllium	1850	150.6	1882.8	1	295	303	0.12	1.14E-05	4.20E-08		20	M
-Beryllium Oxide	2300	138.5	1047.6	1								C
-Constantan	8900	19.5	392.4	9,10	400 U	162		1.49E-05	5.20E-07		9,10	M
-Copper C10200	8860	391.2	385.2	1	206	124.5	0.31	1.70E-05	1.71E-08		25	M
-Copper C17200 (Be/Cu)	8860	132	417.6	1	287.5	127	0.3	1.67E-05	9.61E-08		22	M
-Copper C26000	8580	121.2	378	1	75	110	0.375	1.99E-05			26	M
-Copper C31400	8860	180	378	1	83	115	0.28	1.84E-05	4.10E-08		27	M
-Copper C48500	8580	116	378	1	172	100	0.28	2.12E-05	6.63E-08		28	M
-Copper C50500	8860	207.7	378	1	76	117	0.33	1.78E-05	3.60E-08		29	M
-Copper C82000	8580	259.7	417.6	1	105	115	0.33	1.78E-05	3.59E-07		23	M
-CuW (20% Cu, 80%W)	15560	195		102		1.17		7.60E-06	4.21E-06		101	M
-Delrin	1300	0.4	1465.2	1	75.8 U	3.1		8.46E-05	1e13*	3.7	30	P
-Elgiloy	8300	12.5	429.984	13	520	189.6	0.226	1.52E-05	9.96E-07		13	M
-Fused Quartz	2210	1.5	712.8	1	1110 C	74	0.17	4.00E-07	1.00E+12	3.7	32	C
-Fused Silica (Corning 7980)	2210	1.3	703	105	1140 C	72.7	0.16	5.20E-07	>1e8	3.8	105	C
-G-10 Fiberglass Epoxy (NEMA)	1800	0.288		6	262 U	16.5		9.90E-06		5	6	X
-Gallium Arsenide	5260	32.9	334.8	1				5.40E-06	1.00E+05	13.2	17	C
-Germanium	5260	60.6	324	1		130	0.3	6.10E-06	5.00E-07	16	31	M
-Inconel 718	8300	11.3	434.988	1	1100			1.30E-05	1.25E-06		41	M
-Invar	8030	13.3	504	1	276	141		1.30E-06	8.20E-07		33	M
-Kapton (black)	1300	0.2	1087.2	1								P
-Kapton (standard)	1410	0.2	1004.4	1	69	2.8	0.34	2.00E-05	1.00E+08	3.5	34	P
-Kovar	8360	16.4	438.84	1	345	138	0.317	5.86E-06	4.90E-07		35	M
-M55J Composite	1930	35	1086.984	2	Dependent on specific vendor and direction							X
-Magnesium AZ31B-F,A	1800	73.2	1047.6	1	170	45	0.35	2.60E-05	9.20E-08		36	M
-Manganin	8190	26.4	406.008	7	483 U	124		1.87E-05	4.82E-07		7,8	M
-Molybdenum	10240	147.1	273.6	1	415	330		5.35E-06	5.70E-08		37	M
-Molybdenum TZM	10240	147.1	273.6	1	860	325		4.90E-06			38	M
-Mycalex	2330	0.42	504	1	41	76		1.05E-05	1.00E+10	6.7	39	X
-Nickel Monel 400	8030	21.8	417.6	1	240			1.39E-05	5.47E-07		40	M
-PEEK (glass Fiber filled)	1480	0.39	1900.008	12	98.5	9.7	0.45	2.37E-05	8.00E+13	3.8	12	X
-PEEK (unreinforced)	1300	0.25	2000.016	11	98.8	4.5	0.4	4.41E-05	2.00E+14	3.3	11	P
-RTV 511	1080	0.3		1	2.65 U			2.20E-04	2.00E+12	3.6	42	P
-RTV 560,577	1270	0.3		1	4.71 U			2.00E-04	2.00E+12	3.9	43	P
-RTV 566	1490	0.31		45	5.49 U			2.00E-04	2.00E+12	3.9	45	P
-RTV 615	910	0.2		1	6.37 U			2.70E-04	1.80E+13	2.89	44	P
-SiC (Poco SuperSIC-1)	2530	170	659	91	147 F	218	0.17	2.40E-06			91	C
-SiC (Poco SuperSIC-5)	2930	220	652	91	201 F	354	0.17	2.40E-06			91	C
-SiC Ceraform (Xinetics)	2950	156	670	65		310.3		2.44E-06			65	C
-SiC CVD (Coorstek)	3210	115		75	468 F	468	0.21	4.60E-03	1.00E+04		75	C
-SiC CVD (Rohm-Haas)	3210	300	640	77	470 F	466	0.21	2.20E-06	0.01 - 10		77	C
-SiC Reaction Bonded (Coorstek)	3100	125		75	307	462	0.2	4.30E-06	1.00E+01		75	C
-SiC sintered (Boostec)	3100	180	680	76	450 F	420	0.16	4.00E-06	1.00E+03		76	C
-SiC Sintered (Coorstek)	3150	150		75	480 F	480	0.21	4.40E-06	1.00E+03		75	C
-SiC (SSG)	2900	165	680	88	249 B	331	0.14	2.52E-06	3.15E-05		88	C
-SiC (IBCOL)	2690	135	700	89	210 B	269		2.10E-06			89	C
-SiC UltraSiC (CoorsTek)	3150	175	800	93	480 F	410	0.21	2.20E-06	1.00E+03		93	C
-SiC (ECM Cesic)	2700	120	800	99	164 B	250	0.16	2.09E-06	6.10E-03		99	C
-Silicon	2330	148.9	712.8	1	120 C	112.4	0.28	2.49E-06	0.0001	11.8	16	C
-Stainless Steel 304	8030	16.3	504	1	215	196.5	0.29	1.73E-05	7.20E-07		46	M
-Stainless Steel 440A,B,C	7750	24.2	460.8	1	1280	200	0.29	1.02E-05			18	M
-Stainless Steel A286	7920	12.6	460	73	703	200	0.3	1.69E-05			73	M
-Tantalum	16610	54.5	151.2	1	450 U	186	0.35	6.50E-06	1.25E-07		47	M
-Teflon FEP	2210	0.2	1004.4	1	12.4	0.46	0.48	1.35E-04	1.00E+15	2.04	48	P
-Teflon TFE	2210	0.2	961.2	1	9	0.46	0.46	7.90E-05	7.00E+15	2.1	49	P
-Titanium Ti-6Al-4V	4430	7.3	572.4	1	880	113.8	0.342	8.60E-06	0.00000178		4	M
-Tungsten	19380	167.9	144	1	750	400	0.28	4.40E-06	5.65E-08		50	M
-ULE (Corning 7972)	2210	1.31	767.016	14	49.8 U	67.6	0.17	+-3e-8	3981071706		14	C
-Ultem 1000 PEI (unfilled)	1280	0.122		3	114 U	3.45		5.58E-05	1e13*	3.15	3	P
-Ultem 2300 PEI (30% glass)	1510	0.225		5	117 U	5.52		1.98E-05	1e13*	3.7	5	P
-Zerodur Class 0	2530	1.46	800	95	219.8 A	90.3	0.243	+-2e-8			95	C
-Zerodur Class 1	2530	1.46	800	95	219.8 A	90.3	0.243	+-5e-8			95	C
-Zerodur Class 2	2530	1.46	800	95	219.8 A	90.3	0.243	+-1e-7			95	C"
-
-# ╔═╡ 078ecf77-c473-4de0-960a-c7b38957a805
-columns = [zip(split.(split(dat, '\n'), '\t')...)...] # split by the relevant separators, then massage a bit so we can put it in a DataFrame (don't do this zip thing for large data, it's hella inefficient)
-
-# ╔═╡ 8b0d2a81-1169-487b-b28a-2e3fe50c6d5c
-# read in the data
-df = select!(permutedims(DataFrame(columns), 1), Not(:1)) # we get a dummy column from the permutedims, hence the select operation
-
-# ╔═╡ c7e58d64-adf2-4747-96a4-376fdce17faf
-# get list of properties
-props = vcat(propertynames(df)[2:4], propertynames(df)[6:end-3])
+# ╔═╡ e842a255-78bf-42fd-b03c-9191d0961bf0
+props = [Symbol("density (kg/m^3)")
+Symbol("thermal conductivity  (W/(m*K))")
+Symbol("specific heat (J/(kg*K))")
+Symbol("Tensile Strength (Mpa)")
+Symbol("Modulus (Gpa)")
+Symbol("Poisson's Ratio")
+Symbol("coefficient of thermal expansion (m/(m*K))")
+Symbol("Resistivity (ohm m)")]
 
 # ╔═╡ 5e0d2b26-bfb6-4ff0-8a62-001a4ca1d2b1
 md"""
@@ -131,93 +56,726 @@ x: $(@bind xprop Select(props))
 y: $(@bind yprop Select(props))
 """
 
-# ╔═╡ df10b471-d352-403f-a308-01c8fbc911c7
-df[32, props[4:end]] .= "" # fix for one row
-
-# ╔═╡ 8f094df5-8638-4c84-8632-9bd8ecfaec3b
-md"""
-Next we set up some data cleaning stuff for the properties...
-"""
-
-# ╔═╡ 700f6a9d-35b1-4902-98d8-14f9fdbbcd01
-# data cleaning/annotation extraction for yield tensile strength
+# ╔═╡ 529115cb-e52a-452c-82ba-67ca51322fdb
 begin
-	clean_yts(input::Float64) = (input, " ")
-	clean_yts(input::Missing) = (input, " ")
-	function clean_yts(input::SubString{String})
-		spl = split(input, ' ')
-		if length(spl) == 2
-			return (parse(Float64, spl[1]), spl[2])
-		elseif length(spl[1]) > 0
-			return (parse(Float64, spl[1]), ' ')
-		else
-			return (missing, ' ')
-		end
-	end
+	data = Dict()
+	data[:Material] = 
+["Al 1100-0"
+"Al 6061-T6"
+"Al 6063-T5"
+"AlBeMet162"
+"AlN"
+"Be-38 Al"
+"Be-96A"
+"Beryllia"
+"Beryllium"
+"Beryllium Oxide"
+"Constantan"
+"Copper C10200"
+"Copper C17200 (Be/Cu)"
+"Copper C26000"
+"Copper C31400"
+"Copper C48500"
+"Copper C50500"
+"Copper C82000"
+"CuW (20% Cu, 80%W)"
+"Delrin"
+"Elgiloy"
+"Fused Quartz"
+"Fused Silica (Corning 7980)"
+"G-10 Fiberglass Epoxy (NEMA)"
+"Gallium Arsenide"
+"Germanium"
+"Inconel 718"
+"Invar"
+"Kapton (black)"
+"Kapton (standard)"
+"Kovar"
+"M55J Composite"
+"Magnesium AZ31B-F,A"
+"Manganin"
+"Molybdenum"
+"Molybdenum TZM"
+"Mycalex"
+"Nickel Monel 400"
+"PEEK (glass Fiber filled)"
+"PEEK (unreinforced)"
+"RTV 511"
+"RTV 560,577"
+"RTV 566"
+"RTV 615"
+"SiC (Poco SuperSIC-1)"
+"SiC (Poco SuperSIC-5)"
+"SiC Ceraform (Xinetics)"
+"SiC CVD (Coorstek)"
+"SiC CVD (Rohm-Haas)"
+"SiC Reaction Bonded (Coorstek)"
+"SiC sintered (Boostec)"
+"SiC Sintered (Coorstek)"
+"SiC (SSG)"
+"SiC (IBCOL)"
+"SiC UltraSiC (CoorsTek)"
+"SiC (ECM Cesic)"
+"Silicon"
+"Stainless Steel 304"
+"Stainless Steel 440A,B,C"
+"Stainless Steel A286"
+"Tantalum"
+"Teflon FEP"
+"Teflon TFE"
+"Titanium Ti-6Al-4V"
+"Tungsten"
+"ULE (Corning 7972)"
+"Ultem 1000 PEI (unfilled)"
+"Ultem 2300 PEI (30% glass)"
+"Zerodur Class 0"
+"Zerodur Class 1"
+"Zerodur Class 2"
+]
+	data[props[1]] = [2770.0
+2770.0
+2770.0
+2100.0
+3250.0
+2080.0
+1830.0
+3040.0
+1850.0
+2300.0
+8900.0
+8860.0
+8860.0
+8580.0
+8860.0
+8580.0
+8860.0
+8580.0
+15560.0
+1300.0
+8300.0
+2210.0
+2210.0
+1800.0
+5260.0
+5260.0
+8300.0
+8030.0
+1300.0
+1410.0
+8360.0
+1930.0
+1800.0
+8190.0
+10240.0
+10240.0
+2330.0
+8030.0
+1480.0
+1300.0
+1080.0
+1270.0
+1490.0
+910.0
+2530.0
+2930.0
+2950.0
+3210.0
+3210.0
+3100.0
+3100.0
+3150.0
+2900.0
+2690.0
+3150.0
+2700.0
+2330.0
+8030.0
+7750.0
+7920.0
+16610.0
+2210.0
+2210.0
+4430.0
+19380.0
+2210.0
+1280.0
+1510.0
+2530.0
+2530.0
+2530.0]
+	data[props[2]] = [221.6
+167.9
+200.8
+210.0
+140.0
+212.9
+141.9
+271.8
+150.6
+138.5
+19.5
+391.2
+132.0
+121.2
+180.0
+116.0
+207.7
+259.7
+195.0
+0.4
+12.5
+1.5
+1.3
+0.288
+32.9
+60.6
+11.3
+13.3
+0.2
+0.2
+16.4
+35.0
+73.2
+26.4
+147.1
+147.1
+0.42
+21.8
+0.39
+0.25
+0.3
+0.3
+0.31
+0.2
+170.0
+220.0
+156.0
+115.0
+300.0
+125.0
+180.0
+150.0
+165.0
+135.0
+175.0
+120.0
+148.9
+16.3
+24.2
+12.6
+54.5
+0.2
+0.2
+7.3
+167.9
+1.31
+0.122
+0.225
+1.46
+1.46
+1.46]
+	data[props[3]] = [921.6
+961.2
+900.0
+1506.0
+missing
+missing
+1800.0
+1047.6
+1882.8
+1047.6
+392.4
+385.2
+417.6
+378.0
+378.0
+378.0
+378.0
+417.6
+missing
+1465.2
+429.984
+712.8
+703.0
+missing
+334.8
+324.0
+434.988
+504.0
+1087.2
+1004.4
+438.84
+1086.98
+1047.6
+406.008
+273.6
+273.6
+504.0
+417.6
+1900.01
+2000.02
+missing
+missing
+missing
+missing
+659.0
+652.0
+670.0
+missing
+640.0
+missing
+680.0
+missing
+680.0
+700.0
+800.0
+800.0
+712.8
+504.0
+460.8
+460.0
+151.2
+1004.4
+961.2
+572.4
+144.0
+767.016
+missing
+missing
+800.0
+800.0
+800.0]
+	data[props[4]] = [34.5
+276.0
+145.0
+193.0
+280.0
+missing
+missing
+missing
+295.0
+missing
+400.0
+206.0
+287.5
+75.0
+83.0
+172.0
+76.0
+105.0
+missing
+75.8
+520.0
+1110.0
+1140.0
+262.0
+missing
+missing
+1100.0
+276.0
+missing
+69.0
+345.0
+missing
+170.0
+483.0
+415.0
+860.0
+41.0
+240.0
+98.5
+98.8
+2.65
+4.71
+5.49
+6.37
+147.0
+201.0
+missing
+468.0
+470.0
+307.0
+450.0
+480.0
+249.0
+210.0
+480.0
+164.0
+120.0
+215.0
+1280.0
+703.0
+450.0
+12.4
+9.0
+880.0
+750.0
+49.8
+114.0
+117.0
+219.8
+219.8
+219.8]
+	data[props[5]] = [68.9
+68.9
+68.9
+193.0
+308.0
+missing
+missing
+missing
+303.0
+missing
+162.0
+124.5
+127.0
+110.0
+115.0
+100.0
+117.0
+115.0
+1.17
+3.1
+189.6
+74.0
+72.7
+16.5
+missing
+130.0
+missing
+141.0
+missing
+2.8
+138.0
+missing
+45.0
+124.0
+330.0
+325.0
+76.0
+missing
+9.7
+4.5
+missing
+missing
+missing
+missing
+218.0
+354.0
+310.3
+468.0
+466.0
+462.0
+420.0
+480.0
+331.0
+269.0
+410.0
+250.0
+112.4
+196.5
+200.0
+200.0
+186.0
+0.46
+0.46
+113.8
+400.0
+67.6
+3.45
+5.52
+90.3
+90.3
+90.3]
+	data[props[6]] = [0.33
+0.33
+0.33
+0.17
+missing
+missing
+missing
+0.38
+0.12
+missing
+missing
+0.31
+0.3
+0.375
+0.28
+0.28
+0.33
+0.33
+missing
+missing
+0.226
+0.17
+0.16
+missing
+missing
+0.3
+missing
+missing
+missing
+0.34
+0.317
+missing
+0.35
+missing
+missing
+missing
+missing
+missing
+0.45
+0.4
+missing
+missing
+missing
+missing
+0.17
+0.17
+missing
+0.21
+0.21
+0.2
+0.16
+0.21
+0.14
+missing
+0.21
+0.16
+0.28
+0.29
+0.29
+0.3
+0.35
+0.48
+0.46
+0.342
+0.28
+0.17
+missing
+missing
+0.243
+0.243
+0.243]
+	data[props[7]] = [0.00036
+0.00036
+0.00034
+0.00039
+3.0e-5
+missing
+missing
+4.0e-5
+0.00014
+missing
+0.00049
+0.0007
+0.00067
+0.00099
+0.00084
+0.00012
+0.00078
+0.00078
+6.0e-5
+0.00046
+0.00052
+0.0
+2.0e-6
+9.0e-5
+4.0e-5
+1.0e-5
+0.0003
+3.0e-5
+missing
+0.0
+8.6e-5
+missing
+0.0006
+0.00087
+3.5e-5
+9.0e-5
+5.0e-5
+0.00039
+0.00037
+0.00041
+0.002
+0.0
+0.0
+0.007
+4.0e-5
+4.0e-5
+4.4e-5
+0.06
+2.0e-5
+3.0e-5
+0.0
+4.0e-5
+5.2e-5
+1.0e-5
+2.0e-5
+9.0e-6
+4.9e-5
+0.00073
+2.0e-5
+0.00069
+5.0e-5
+0.0035
+0.0009
+6.0e-5
+4.0e-5
+3.0e-8
+0.00058
+0.00098
+2.0e-8
+5.0e-8
+1.0e-7]
+	data[props[8]] = [2.99e-8
+3.99e-8
+3.16e-8
+3.5e-8
+1.0e12
+missing
+missing
+missing
+4.2e-8
+missing
+5.2e-7
+1.71e-8
+9.61e-8
+missing
+4.1e-8
+6.63e-8
+3.6e-8
+3.59e-7
+4.21e-6
+missing
+9.96e-7
+1.0e12
+1.0e8
+missing
+100000.0
+5.0e-7
+1.25e-6
+8.2e-7
+missing
+1.0e8
+4.9e-7
+missing
+9.2e-8
+4.82e-7
+5.7e-8
+missing
+1.0e10
+5.47e-7
+8.0e13
+2.0e14
+2.0e12
+2.0e12
+2.0e12
+1.8e13
+missing
+missing
+missing
+10000.0
+missing
+10.0
+1000.0
+1000.0
+3.15e-5
+missing
+1000.0
+0.0061
+0.0001
+7.2e-7
+missing
+missing
+1.25e-7
+1.0e15
+7.0e15
+1.78e-6
+5.65e-8
+3.98107e9
+missing
+missing
+missing
+missing
+missing]
+	data[:Color] = ["M"
+"M"
+"M"
+"X"
+"C"
+"M"
+"M"
+"C"
+"M"
+"C"
+"M"
+"M"
+"M"
+"M"
+"M"
+"M"
+"M"
+"M"
+"M"
+"P"
+"M"
+"C"
+"C"
+"X"
+"C"
+"M"
+"M"
+"M"
+"P"
+"P"
+"M"
+"X"
+"M"
+"M"
+"M"
+"M"
+"X"
+"M"
+"X"
+"P"
+"P"
+"P"
+"P"
+"P"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"C"
+"M"
+"M"
+"M"
+"M"
+"P"
+"P"
+"M"
+"M"
+"C"
+"P"
+"P"
+"C"
+"C"
+"C"
+]
 end
 
-# ╔═╡ b66a97b2-7e9e-4c8f-a72b-8fb3042f7ce8
-transform!(df, AsTable(props[4]) => ByRow(r -> clean_yts(r[props[4]])) => [props[4], :YTS_annotation])
-
-# ╔═╡ e3924061-1126-4338-98e3-62d3b905edfc
-# data cleaning/annotation extraction for coefficient of thermal expansion
-begin
-	clean_cte(input::Float64) = input
-	clean_cte(input::Missing) = input
-	function clean_cte(input::SubString{String})
-		if length(input) > 0
-			return parse(Float64, input[3:end])
-		else
-			return missing
-		end
-	end
-end
-
-# ╔═╡ a87c2e6b-3236-4dc8-aa94-939f5eb46fc0
-transform!(df, props[7] => ByRow(clean_cte) => props[7])
-
-# ╔═╡ 1080caf5-feb6-46bd-8500-843982bfa37b
-# data cleaning/annotation extraction for resistivity
-begin
-	clean_ρ(input::Float64) = input
-	clean_ρ(input::Missing) = input
-	clean_ρ(input::Nothing) = missing
-	function clean_ρ(input::SubString{String})
-		if length(input)==0 || input[end] == '*'
-			return missing
-		elseif input[1] == '+'
-			return parse(Float64, input[3:end])
-		elseif input[1] == '>'
-			return parse(Float64, input[2:end])
-		else
-			try
-				return parse(Float64, input)
-			catch
-				return missing
-			end
-		end
-	end
-end
-
-# ╔═╡ be80fee0-3376-4d30-807c-d3ca6f799eb5
-transform!(df, props[8] => ByRow(clean_ρ) => props[8])
-
-# ╔═╡ 25739009-0479-40f5-b7a9-23ff569bf215
-function generic_dataclean(input)
-	if length(input)>0
-		return parse(Float64, input)
-	else
-		return missing
-	end
-end
-
-# ╔═╡ bdcacb79-d578-48aa-a6d6-154bb854e003
-for i in [1, 2, 3, 5, 6]
-	transform!(df, props[i] => ByRow(generic_dataclean) => props[i])
-end
-
-# ╔═╡ 3a817923-ca57-45d2-b745-637d7250d82c
-df[:, props[8]] = replace(df[:, props[8]], nothing => missing)
+# ╔═╡ 38329259-f412-400c-bbc7-6a59437e8644
+df = DataFrame(data)
 
 # ╔═╡ 191d26c5-2f97-4471-b7a7-4116fd68218c
 md"""
@@ -233,7 +791,7 @@ stats[stats.variable .== props[1], :].min[1]
 # ╔═╡ 8343d247-5d80-4ce4-a55e-811e41e414e1
 function axis_scaling(prop, thresh=100)
 	info = stats[stats.variable .== prop, :]
-	if info.max[1] / info.min[1] > thresh
+	if info.max[1] / info.min[1] > thresh && info.min[1] > 0.0
 		return :log10
 	else
 		return :identity
@@ -264,14 +822,12 @@ end
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 PlotlyJS = "f0f68f2c-4968-5e81-91da-67840de0976a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
 DataFrames = "~1.4.4"
-HTTP = "~0.9.17"
 PlotlyJS = "~0.18.10"
 Plots = "~1.38.0"
 PlutoUI = "~0.7.49"
@@ -1375,21 +1931,9 @@ version = "1.4.1+0"
 # ╠═91e3cd20-80dc-11ed-1af8-79425c3a5d03
 # ╠═0f8598c1-991d-40e6-ac1d-64ae42ae9e91
 # ╟─9fa06e67-dd6d-43b2-a5cb-41695010c14b
-# ╟─b1a854e3-a7d1-4933-9222-d5228ffa6bb7
-# ╠═078ecf77-c473-4de0-960a-c7b38957a805
-# ╠═8b0d2a81-1169-487b-b28a-2e3fe50c6d5c
-# ╠═df10b471-d352-403f-a308-01c8fbc911c7
-# ╠═c7e58d64-adf2-4747-96a4-376fdce17faf
-# ╟─8f094df5-8638-4c84-8632-9bd8ecfaec3b
-# ╠═700f6a9d-35b1-4902-98d8-14f9fdbbcd01
-# ╠═b66a97b2-7e9e-4c8f-a72b-8fb3042f7ce8
-# ╠═e3924061-1126-4338-98e3-62d3b905edfc
-# ╠═a87c2e6b-3236-4dc8-aa94-939f5eb46fc0
-# ╠═1080caf5-feb6-46bd-8500-843982bfa37b
-# ╠═be80fee0-3376-4d30-807c-d3ca6f799eb5
-# ╠═25739009-0479-40f5-b7a9-23ff569bf215
-# ╠═bdcacb79-d578-48aa-a6d6-154bb854e003
-# ╠═3a817923-ca57-45d2-b745-637d7250d82c
+# ╟─e842a255-78bf-42fd-b03c-9191d0961bf0
+# ╟─529115cb-e52a-452c-82ba-67ca51322fdb
+# ╠═38329259-f412-400c-bbc7-6a59437e8644
 # ╟─191d26c5-2f97-4471-b7a7-4116fd68218c
 # ╠═3ec6db8c-8e09-4d1c-b614-0a050fe4aba2
 # ╠═aa0960ef-b6c8-40cb-870e-219e1d7fc2d9
